@@ -10,7 +10,6 @@
         /* iOS Clean Style */
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f2f2f7; margin: 0; padding: 20px; color: #000; }
         
-        /* The Database Card */
         .db-info { font-size: 12px; color: #888; text-align: center; margin-bottom: 20px; }
 
         /* Main Controls */
@@ -22,28 +21,40 @@
             transition: all 0.2s; 
         }
         #mic-btn.recording { background: #ff3b30; transform: scale(1.1); box-shadow: 0 0 0 10px rgba(255,59,48,0.3); }
-        #status { margin-top: 15px; font-size: 16px; color: #555; height: 20px; }
+        
+        /* STATUS INDICATORS */
+        #status { margin-top: 15px; font-size: 16px; color: #555; height: 20px; font-weight: 500; }
+        .status-thinking { color: #007AFF; }
+        .status-calling  { color: #5856D6; animation: blink 1s infinite; } /* Purple Blink */
+        .status-error    { color: #FF3B30; }
+
+        @keyframes blink { 50% { opacity: 0.5; } }
 
         /* List Styling */
         .log-container { display: flex; flex-direction: column; gap: 15px; }
         .log-card { background: white; border-radius: 16px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         
         .log-lines { 
-            font-family: "Menlo", "Courier New", monospace; /* Monospace for alignment */
-            font-size: 14px; 
-            color: #333; 
-            background: #f8f8f8; 
-            padding: 10px; 
-            border-radius: 8px; 
-            white-space: pre-wrap; /* Keeps line breaks */
-            margin-bottom: 10px;
+            font-family: "Menlo", "Courier New", monospace; 
+            font-size: 14px; color: #333; background: #f8f8f8; 
+            padding: 10px; border-radius: 8px; 
+            white-space: pre-wrap; margin-bottom: 10px;
         }
 
         .card-actions { display: flex; justify-content: space-between; align-items: center; }
         .btn { border: none; background: #e5e5ea; padding: 8px 16px; border-radius: 8px; font-weight: 600; color: #007AFF; cursor: pointer; }
         .btn-del { color: #ff3b30; background: none; }
 
-        /* API Settings */
+        /* AI Badge on Card */
+        .ai-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #5856D6, #AF52DE);
+            color: white; font-size: 10px; font-weight: bold;
+            padding: 2px 6px; border-radius: 4px;
+            margin-left: 8px; vertical-align: middle;
+            text-transform: uppercase;
+        }
+
         .settings { margin-top: 40px; text-align: center; }
         #api-input { display: none; margin: 10px auto; width: 80%; padding: 8px; border: 1px solid #ccc; border-radius: 8px; }
     </style>
@@ -65,22 +76,17 @@
     </div>
 
     <script>
-        // ==========================================================
-        // 1. YOUR DATABASE (EDIT THIS LIST)
-        // Values are per 100 grams
-        // ==========================================================
         const FOOD_DB = {
-            // Food Name (lowercase) : { cal: Calories, prot: Protein }
             "plov":            { cal: 250, prot: 8 },
             "osh":             { cal: 250, prot: 8 },
             "samsa":           { cal: 280, prot: 10 },
-            "boiled buckwheat":           { cal: 90, prot: 3.4 },
-            "olive oil":           { cal: 89, prot: 0 },
-            "fried chicken":           { cal: 200, prot: 31 },
-            "kimchi":           { cal: 30, prot: 1 },
-            "carrot":           { cal: 44, prot: 1.2 },
-            "heavy oats":           { cal: 334, prot: 12 },
-            "light oats":           { cal: 370, prot: 13 },
+            "boiled buckwheat":{ cal: 90, prot: 3.4 },
+            "olive oil":       { cal: 89, prot: 0 },
+            "fried chicken":   { cal: 200, prot: 31 },
+            "kimchi":          { cal: 30, prot: 1 },
+            "carrot":          { cal: 44, prot: 1.2 },
+            "heavy oats":      { cal: 334, prot: 12 },
+            "light oats":      { cal: 370, prot: 13 },
             "boiled chicken":  { cal: 165, prot: 31 },
             "chicken breast":  { cal: 165, prot: 31 },
             "tovuq":           { cal: 165, prot: 31 },
@@ -99,7 +105,6 @@
             "shashlik":        { cal: 240, prot: 20 }
         };
 
-        // Standard portion sizes if you don't say grams
         const DEFAULT_GRAMS = 100; 
         const PORTION_SIZES = {
             "plov": 350, "osh": 350,
@@ -109,18 +114,14 @@
 
         document.getElementById('db-count').innerText = Object.keys(FOOD_DB).length;
 
-        // ==========================================================
-        // 2. LOGIC
-        // ==========================================================
         let history = JSON.parse(localStorage.getItem('diet_log_v5')) || [];
         const micBtn = document.getElementById('mic-btn');
         const statusEl = document.getElementById('status');
         let isRecording = false;
 
-        // Speech Setup
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         const recognition = new SpeechRecognition();
-        recognition.lang = 'en-US'; // Or 'ru-RU' if you prefer Russian
+        recognition.lang = 'en-US'; 
         recognition.continuous = true;
 
         micBtn.onclick = () => {
@@ -132,89 +133,80 @@
             isRecording = true;
             micBtn.classList.add('recording');
             statusEl.innerText = "Listening...";
+            statusEl.className = "";
         };
 
         recognition.onend = () => {
             isRecording = false;
             micBtn.classList.remove('recording');
-            statusEl.innerText = "Tap to Record";
+            if(statusEl.innerText === "Listening...") statusEl.innerText = "Tap to Record";
         };
 
         recognition.onresult = async (event) => {
             const last = event.results.length - 1;
             const text = event.results[last][0].transcript;
             if(event.results[last].isFinal){
+                // SHOW: Processing
                 statusEl.innerText = "Processing: " + text;
                 await processInput(text);
             }
         };
 
-        // MAIN PROCESSING FUNCTION
         async function processInput(text) {
             text = text.toLowerCase();
             const time = new Date().toLocaleTimeString('ru-RU', {hour: '2-digit', minute:'2-digit'});
             
             let detectedItems = [];
             
-            // 1. Try to find foods from YOUR DB in the text
-            // Strategy: Check every key in FOOD_DB to see if it exists in the spoken text
+            // 1. Local Search
             for (let foodKey in FOOD_DB) {
                 if (text.includes(foodKey)) {
-                    
-                    // 2. Try to find grams near this food
-                    // Regex looks for numbers near the food name or generic numbers
-                    // Simple approach: Look for "Number grams" or just default
-                    
-                    let grams = PORTION_SIZES[foodKey] || DEFAULT_GRAMS; // Default
-                    
-                    // Regex: "200 grams plov" or "plov 200" or "200 plov"
-                    // We extract all numbers from the string to guess
+                    let grams = PORTION_SIZES[foodKey] || DEFAULT_GRAMS; 
                     const numbers = text.match(/\d+/g);
                     if (numbers && numbers.length > 0) {
-                        // Very naive: take the first number found as grams
-                        // Refinement: If user says "2 samsa", we might want 2 * 100
-                        // For now, let's assume user says "200 grams"
-                         
-                        // If number is small (<10), assume "pieces" and multiply by default size
                         const num = parseInt(numbers[0]);
-                        if (num < 10) {
-                             grams = num * (PORTION_SIZES[foodKey] || 100);
-                        } else {
-                             grams = num;
-                        }
+                        if (num < 10) grams = num * (PORTION_SIZES[foodKey] || 100);
+                        else grams = num;
                     }
 
-                    // Calculate Macros based on DB
                     const factor = grams / 100;
-                    const cals = Math.round(FOOD_DB[foodKey].cal * factor);
-                    const prot = Math.round(FOOD_DB[foodKey].prot * factor);
-
                     detectedItems.push({
                         name: foodKey,
                         grams: grams,
-                        cal: cals,
-                        prot: prot
+                        cal: Math.round(FOOD_DB[foodKey].cal * factor),
+                        prot: Math.round(FOOD_DB[foodKey].prot * factor)
                     });
                 }
             }
 
             if (detectedItems.length > 0) {
-                addToHistory(detectedItems, time);
+                // False means "Not AI"
+                addToHistory(detectedItems, time, false);
+                statusEl.innerText = "Saved (Local DB)";
+                statusEl.className = "";
             } else {
-                // Try AI if local fail (optional)
+                // 2. AI Fallback
                 const apiKey = "sk-1db5fd50095842cfb1cab3a007df4970";
+                
                 if(apiKey && navigator.onLine) {
+                    // SHOW: Triggering AI
+                    statusEl.innerText = "🤖 Local search failed. Activating AI...";
+                    statusEl.className = "status-thinking";
                     await askAI(text, time);
                 } else {
-                    statusEl.innerText = "Food not in DB. Try 'Boiled Chicken'";
+                    statusEl.innerText = "❌ Not found. Try 'Boiled Chicken'";
+                    statusEl.className = "status-error";
                 }
             }
         }
 
         async function askAI(text, time) {
-            // This is a fallback to parse weird sentences, but we still force DB values if name matches
             const apiKey = "sk-1db5fd50095842cfb1cab3a007df4970";
             try {
+                // SHOW: The Network Call
+                statusEl.innerText = "📡 Calling DeepSeek LLM...";
+                statusEl.className = "status-calling";
+
                 const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
@@ -226,12 +218,14 @@
                         }, { role: "user", content: text }]
                     })
                 });
+                
+                if (!res.ok) throw new Error("API Limit or Key Error");
+
                 const data = await res.json();
                 let items = JSON.parse(data.choices[0].message.content.replace(/```json|```/g, '').trim());
                 
-                // Recalculate using LOCAL DB to ensure accuracy
                 let finalItems = items.map(i => {
-                    let dbItem = FOOD_DB[i.name] || { cal: 100, prot: 5 }; // Fallback if AI invents food
+                    let dbItem = FOOD_DB[i.name] || { cal: 100, prot: 5 }; 
                     let factor = i.grams / 100;
                     return {
                         name: i.name,
@@ -240,16 +234,29 @@
                         prot: Math.round(dbItem.prot * factor)
                     };
                 });
-                addToHistory(finalItems, time);
+                
+                // True means "Is AI"
+                addToHistory(finalItems, time, true);
+                
+                statusEl.innerText = "✅ AI Success";
+                statusEl.className = "";
+                setTimeout(() => statusEl.innerText = "Tap to Record", 2000);
 
-            } catch(e) { console.error(e); }
+            } catch(e) { 
+                console.error(e);
+                // SHOW: Failure
+                statusEl.innerText = "❌ AI Failed: " + e.message;
+                statusEl.className = "status-error";
+            }
         }
 
-        function addToHistory(items, time) {
+        // Added isAI parameter
+        function addToHistory(items, time, isAI = false) {
             const entry = {
                 id: Date.now(),
                 time: time,
-                items: items
+                items: items,
+                isAI: isAI // Save the source
             };
             history.unshift(entry);
             saveAndRender();
@@ -268,18 +275,19 @@
                 entry.items.forEach(item => {
                     totalCal += item.cal;
                     totalProt += item.prot;
-                    // Format: "plov 100 gr"
                     foodText += `${item.name} ${item.grams} gr\n`;
                 });
 
-                // Format: "22:54 800 cal protein 62 gr"
-                const summaryLine = `${entry.time} ${totalCal} cal protein ${totalProt} gr`;
-                const fullText = foodText + summaryLine;
+                // Show Badge if AI was used
+                const aiBadge = entry.isAI ? '<span class="ai-badge">✨ AI</span>' : '';
+                
+                const summaryLine = `${entry.time} ${aiBadge} ${totalCal} cal protein ${totalProt} gr`;
+                const fullText = foodText + summaryLine.replace(/<[^>]*>?/gm, ''); // clean text for copy
 
                 const div = document.createElement('div');
                 div.className = 'log-card';
                 div.innerHTML = `
-                    <div class="log-lines">${fullText}</div>
+                    <div class="log-lines">${foodText}${summaryLine}</div>
                     <div class="card-actions">
                         <button class="btn btn-del" onclick="del(${entry.id})">Delete</button>
                         <button class="btn" onclick="copyText(this, \`${fullText.replace(/\n/g, '\\n')}\`)">Copy</button>
@@ -309,7 +317,6 @@
             }
         }
 
-        // Init
         saveAndRender();
 
     </script>
