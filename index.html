@@ -1,178 +1,213 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Uzbek Diet Tracker</title>
+    <title>My Diet Log</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f2f2f7; margin: 0; padding: 15px; color: #1c1c1e; }
+        /* iOS Clean Style */
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f2f2f7; margin: 0; padding: 20px; color: #000; }
         
-        /* HEADER STATS */
-        .header-card { background: white; border-radius: 20px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; text-align: center; }
-        .big-number { font-size: 36px; font-weight: 800; color: #007AFF; margin: 5px 0; }
-        .macros-row { display: flex; justify-content: center; gap: 15px; font-size: 14px; color: #666; margin-top: 5px; }
-        .macro-item span { font-weight: 600; color: #000; }
+        /* The Database Card */
+        .db-info { font-size: 12px; color: #888; text-align: center; margin-bottom: 20px; }
 
-        /* MIC BUTTON */
-        .controls { text-align: center; margin-bottom: 25px; }
+        /* Main Controls */
+        .controls { display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 20px; }
         #mic-btn { 
-            width: 72px; height: 72px; border-radius: 50%; border: none; 
-            background: #007AFF; color: white; font-size: 30px; 
-            box-shadow: 0 6px 20px rgba(0,122,255,0.4); cursor: pointer; 
-            transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+            width: 80px; height: 80px; border-radius: 50%; border: none; 
+            background: #007AFF; color: white; font-size: 32px; 
+            box-shadow: 0 4px 15px rgba(0,122,255,0.4); cursor: pointer; 
+            transition: all 0.2s; 
         }
-        #mic-btn:active { transform: scale(0.92); }
-        #mic-btn.recording { background: #ff3b30; box-shadow: 0 0 0 8px rgba(255, 59, 48, 0.3); animation: pulse 2s infinite; }
-        #status-text { margin-top: 10px; font-size: 14px; color: #8e8e93; min-height: 20px; }
+        #mic-btn.recording { background: #ff3b30; transform: scale(1.1); box-shadow: 0 0 0 10px rgba(255,59,48,0.3); }
+        #status { margin-top: 15px; font-size: 16px; color: #555; height: 20px; }
 
-        /* LOG LIST */
-        .log-list { display: flex; flex-direction: column; gap: 12px; }
-        .log-card { background: white; border-radius: 16px; padding: 16px; position: relative; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
-        .log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-        .log-time { font-size: 13px; color: #8e8e93; font-weight: 600; }
-        .log-cals { font-weight: 700; color: #007AFF; font-size: 15px; }
-        .log-body { font-size: 15px; line-height: 1.4; color: #1c1c1e; margin-bottom: 8px; }
-        .log-footer { border-top: 1px solid #f2f2f7; padding-top: 8px; display: flex; justify-content: space-between; align-items: center; }
-        .log-macros { font-size: 12px; color: #666; font-family: monospace; }
+        /* List Styling */
+        .log-container { display: flex; flex-direction: column; gap: 15px; }
+        .log-card { background: white; border-radius: 16px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         
-        /* ACTIONS */
-        .btn-action { background: #f2f2f7; border: none; border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 600; color: #007AFF; cursor: pointer; }
-        .btn-delete { color: #ff3b30; background: none; }
+        .log-lines { 
+            font-family: "Menlo", "Courier New", monospace; /* Monospace for alignment */
+            font-size: 14px; 
+            color: #333; 
+            background: #f8f8f8; 
+            padding: 10px; 
+            border-radius: 8px; 
+            white-space: pre-wrap; /* Keeps line breaks */
+            margin-bottom: 10px;
+        }
 
-        /* SETTINGS */
+        .card-actions { display: flex; justify-content: space-between; align-items: center; }
+        .btn { border: none; background: #e5e5ea; padding: 8px 16px; border-radius: 8px; font-weight: 600; color: #007AFF; cursor: pointer; }
+        .btn-del { color: #ff3b30; background: none; }
+
+        /* API Settings */
         .settings { margin-top: 40px; text-align: center; }
-        #api-input { padding: 10px; width: 80%; border: 1px solid #e5e5ea; border-radius: 10px; font-size: 14px; text-align: center; display: none; margin: 10px auto; }
-        
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        #api-input { display: none; margin: 10px auto; width: 80%; padding: 8px; border: 1px solid #ccc; border-radius: 8px; }
     </style>
 </head>
 <body>
 
-    <div class="header-card">
-        <div style="font-size:12px; color:#8e8e93; text-transform:uppercase; letter-spacing:1px;">Сегодня</div>
-        <div class="big-number" id="total-cal">0</div>
-        <div class="macros-row">
-            <div class="macro-item">Protein <span>0g</span></div>
-            <div class="macro-item">Carbs <span>0g</span></div>
-            <div class="macro-item">Fat <span>0g</span></div>
-        </div>
-    </div>
+    <div class="db-info">DATABASE LOADED: <span id="db-count">0</span> ITEMS</div>
 
     <div class="controls">
         <button id="mic-btn">🎙️</button>
-        <div id="status-text">Нажми для записи</div>
+        <div id="status">Tap to Record</div>
     </div>
 
-    <div id="log-container" class="log-list"></div>
+    <div id="log-container" class="log-container"></div>
 
     <div class="settings">
-        <small onclick="toggleSettings()" style="color:#c7c7cc">⚙️ Настройки AI</small>
-        <input type="password" id="api-input" placeholder="Вставь DeepSeek API Key" onchange="saveKey(this.value)">
+        <small onclick="document.getElementById('api-input').style.display='block'" style="color:#ccc">API Key (Optional)</small>
+        <input type="password" id="api-input" placeholder="sk-..." onchange="localStorage.setItem('deepseek_key', this.value)">
     </div>
 
     <script>
-        // --- DATA & STATE ---
-        let history = JSON.parse(localStorage.getItem('uz_history_v3')) || [];
-        let apiKey = localStorage.getItem('deepseek_key') || "";
+        // ==========================================================
+        // 1. YOUR DATABASE (EDIT THIS LIST)
+        // Values are per 100 grams
+        // ==========================================================
+        const FOOD_DB = {
+            // Food Name (lowercase) : { cal: Calories, prot: Protein }
+            "plov":            { cal: 250, prot: 8 },
+            "osh":             { cal: 250, prot: 8 },
+            "samsa":           { cal: 280, prot: 10 },
+            "somsa":           { cal: 280, prot: 10 },
+            "boiled chicken":  { cal: 165, prot: 31 },
+            "chicken breast":  { cal: 165, prot: 31 },
+            "tovuq":           { cal: 165, prot: 31 },
+            "beef":            { cal: 250, prot: 26 },
+            "non":             { cal: 260, prot: 9 },
+            "bread":           { cal: 260, prot: 9 },
+            "lepeshka":        { cal: 260, prot: 9 },
+            "egg":             { cal: 155, prot: 13 },
+            "tuxum":           { cal: 155, prot: 13 },
+            "rice":            { cal: 130, prot: 2 },
+            "grechka":         { cal: 340, prot: 13 },
+            "buckwheat":       { cal: 340, prot: 13 },
+            "apple":           { cal: 52,  prot: 0 },
+            "banana":          { cal: 89,  prot: 1 },
+            "salad":           { cal: 20,  prot: 1 },
+            "shashlik":        { cal: 240, prot: 20 }
+        };
+
+        // Standard portion sizes if you don't say grams
+        const DEFAULT_GRAMS = 100; 
+        const PORTION_SIZES = {
+            "plov": 350, "osh": 350,
+            "samsa": 100, "somsa": 100,
+            "apple": 150, "egg": 50, "tuxum": 50
+        };
+
+        document.getElementById('db-count').innerText = Object.keys(FOOD_DB).length;
+
+        // ==========================================================
+        // 2. LOGIC
+        // ==========================================================
+        let history = JSON.parse(localStorage.getItem('diet_log_v5')) || [];
+        const micBtn = document.getElementById('mic-btn');
+        const statusEl = document.getElementById('status');
         let isRecording = false;
 
-        // Offline Database (100g basis)
-        const db = {
-            "плов": {c:250, p:8, f:15, carb:25},
-            "ош": {c:250, p:8, f:15, carb:25},
-            "самса": {c:280, p:10, f:18, carb:22},
-            "лагман": {c:160, p:6, f:8, carb:15},
-            "манты": {c:230, p:9, f:10, carb:25},
-            "шашлык": {c:240, p:20, f:17, carb:2},
-            "нон": {c:260, p:8, f:1, carb:50},
-            "хлеб": {c:260, p:8, f:1, carb:50},
-            "яйцо": {c:155, p:13, f:11, carb:1},
-            "творог": {c:100, p:16, f:1, carb:3},
-            "яблоко": {c:52, p:0, f:0, carb:14},
-            "банан": {c:90, p:1, f:0, carb:23},
-            "кола": {c:42, p:0, f:0, carb:10},
-            "чай": {c:1, p:0, f:0, carb:0},
-            "кофе": {c:2, p:0, f:0, carb:0}
-        };
-
-        // --- SPEECH RECOGNITION ---
+        // Speech Setup
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         const recognition = new SpeechRecognition();
-        recognition.lang = 'ru-RU';
-        recognition.continuous = true; // Keep listening until user stops
-        recognition.interimResults = true;
+        recognition.lang = 'en-US'; // Or 'ru-RU' if you prefer Russian
+        recognition.continuous = true;
 
-        const micBtn = document.getElementById('mic-btn');
-        const statusEl = document.getElementById('status-text');
-
-        // TOGGLE LOGIC (Fix for "Doesn't stop")
         micBtn.onclick = () => {
-            if (isRecording) {
-                stopRecording();
-            } else {
-                startRecording();
-            }
+            if(isRecording) { recognition.stop(); } 
+            else { recognition.start(); }
         };
 
-        function startRecording() {
-            try {
-                recognition.start();
-                isRecording = true;
-                micBtn.classList.add('recording');
-                statusEl.innerText = "Слушаю... (Нажми еще раз чтобы стоп)";
-            } catch (e) { console.error(e); }
-        }
-
-        function stopRecording() {
-            recognition.stop();
-            isRecording = false;
-            micBtn.classList.remove('recording');
-            statusEl.innerText = "Обрабатываю...";
-        }
-
-        let finalTranscript = "";
-
-        recognition.onresult = (event) => {
-            let interim = "";
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-                if (event.results[i].isFinal) {
-                    finalTranscript += event.results[i][0].transcript + " ";
-                } else {
-                    interim += event.results[i][0].transcript;
-                }
-            }
-            if (isRecording) statusEl.innerText = interim || "Слушаю...";
+        recognition.onstart = () => {
+            isRecording = true;
+            micBtn.classList.add('recording');
+            statusEl.innerText = "Listening...";
         };
 
         recognition.onend = () => {
-            if (isRecording) {
-                // If stopped by silence but flag is true, restart (unless user pressed stop)
-                // actually better to just process what we have if user stopped talking
-                stopRecording(); 
-            }
-            if (finalTranscript.trim().length > 0) {
-                processText(finalTranscript);
-                finalTranscript = "";
-            } else {
-                statusEl.innerText = "Нажми для записи";
+            isRecording = false;
+            micBtn.classList.remove('recording');
+            statusEl.innerText = "Tap to Record";
+        };
+
+        recognition.onresult = async (event) => {
+            const last = event.results.length - 1;
+            const text = event.results[last][0].transcript;
+            if(event.results[last].isFinal){
+                statusEl.innerText = "Processing: " + text;
+                await processInput(text);
             }
         };
 
-        // --- PROCESSING ---
-        async function processText(text) {
+        // MAIN PROCESSING FUNCTION
+        async function processInput(text) {
+            text = text.toLowerCase();
             const time = new Date().toLocaleTimeString('ru-RU', {hour: '2-digit', minute:'2-digit'});
             
-            if (navigator.onLine && apiKey) {
-                await askDeepSeek(text, time);
+            let detectedItems = [];
+            
+            // 1. Try to find foods from YOUR DB in the text
+            // Strategy: Check every key in FOOD_DB to see if it exists in the spoken text
+            for (let foodKey in FOOD_DB) {
+                if (text.includes(foodKey)) {
+                    
+                    // 2. Try to find grams near this food
+                    // Regex looks for numbers near the food name or generic numbers
+                    // Simple approach: Look for "Number grams" or just default
+                    
+                    let grams = PORTION_SIZES[foodKey] || DEFAULT_GRAMS; // Default
+                    
+                    // Regex: "200 grams plov" or "plov 200" or "200 plov"
+                    // We extract all numbers from the string to guess
+                    const numbers = text.match(/\d+/g);
+                    if (numbers && numbers.length > 0) {
+                        // Very naive: take the first number found as grams
+                        // Refinement: If user says "2 samsa", we might want 2 * 100
+                        // For now, let's assume user says "200 grams"
+                         
+                        // If number is small (<10), assume "pieces" and multiply by default size
+                        const num = parseInt(numbers[0]);
+                        if (num < 10) {
+                             grams = num * (PORTION_SIZES[foodKey] || 100);
+                        } else {
+                             grams = num;
+                        }
+                    }
+
+                    // Calculate Macros based on DB
+                    const factor = grams / 100;
+                    const cals = Math.round(FOOD_DB[foodKey].cal * factor);
+                    const prot = Math.round(FOOD_DB[foodKey].prot * factor);
+
+                    detectedItems.push({
+                        name: foodKey,
+                        grams: grams,
+                        cal: cals,
+                        prot: prot
+                    });
+                }
+            }
+
+            if (detectedItems.length > 0) {
+                addToHistory(detectedItems, time);
             } else {
-                askLocal(text, time);
+                // Try AI if local fail (optional)
+                const apiKey = localStorage.getItem('deepseek_key');
+                if(apiKey && navigator.onLine) {
+                    await askAI(text, time);
+                } else {
+                    statusEl.innerText = "Food not in DB. Try 'Boiled Chicken'";
+                }
             }
         }
 
-        // 1. AI MODE
-        async function askDeepSeek(text, time) {
+        async function askAI(text, time) {
+            // This is a fallback to parse weird sentences, but we still force DB values if name matches
+            const apiKey = localStorage.getItem('deepseek_key');
             try {
                 const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
                     method: 'POST',
@@ -181,142 +216,96 @@
                         model: "deepseek-chat",
                         messages: [{ 
                             role: "system", 
-                            content: `Analyze text. Return JSON array: [{"food":"Name","grams":int,"c":int,"p":int,"f":int,"carb":int}]. 
-                            Calculate macros based on grams. Plov=250kcal/100g. Default portion=300g. 
-                            Output ONLY JSON.` 
+                            content: "Extract foods: JSON array [{'name':'food_key','grams':int}]. Use english keys. If grams unknown use 100." 
                         }, { role: "user", content: text }]
                     })
                 });
                 const data = await res.json();
-                const jsonStr = data.choices[0].message.content.replace(/```json|```/g, '').trim();
-                const items = JSON.parse(jsonStr);
-                addRecord(items, time);
-            } catch (e) {
-                console.log("AI Error", e);
-                askLocal(text, time); // Fallback
-            }
+                let items = JSON.parse(data.choices[0].message.content.replace(/```json|```/g, '').trim());
+                
+                // Recalculate using LOCAL DB to ensure accuracy
+                let finalItems = items.map(i => {
+                    let dbItem = FOOD_DB[i.name] || { cal: 100, prot: 5 }; // Fallback if AI invents food
+                    let factor = i.grams / 100;
+                    return {
+                        name: i.name,
+                        grams: i.grams,
+                        cal: Math.round(dbItem.cal * factor),
+                        prot: Math.round(dbItem.prot * factor)
+                    };
+                });
+                addToHistory(finalItems, time);
+
+            } catch(e) { console.error(e); }
         }
 
-        // 2. OFFLINE MODE
-        function askLocal(text, time) {
-            text = text.toLowerCase();
-            let items = [];
-            
-            for (let [key, val] of Object.entries(db)) {
-                if (text.includes(key)) {
-                    let grams = 100;
-                    // Extract number
-                    const nums = text.match(/(\d+)\s*(г|гр|грамм)?/);
-                    if (nums) grams = parseInt(nums[1]);
-                    // Defaults
-                    else if (['плов','ош','лагман'].includes(key)) grams = 350;
-                    else if (['самса','яблоко','яйцо'].includes(key)) grams = 100;
-
-                    const factor = grams / 100;
-                    items.push({
-                        food: key.charAt(0).toUpperCase() + key.slice(1),
-                        grams: grams,
-                        c: Math.round(val.c * factor),
-                        p: Math.round(val.p * factor),
-                        f: Math.round(val.f * factor),
-                        carb: Math.round(val.carb * factor)
-                    });
-                }
-            }
-            if (items.length > 0) addRecord(items, time);
-            else statusEl.innerText = "Не понял. Попробуй '300г плова'";
-        }
-
-        // --- UI & STORAGE ---
-        function addRecord(items, time) {
-            // Calculate entry totals
-            let entryTotal = {c:0, p:0, f:0, carb:0};
-            items.forEach(i => {
-                entryTotal.c += i.c; entryTotal.p += i.p; entryTotal.f += i.f; entryTotal.carb += i.carb;
-            });
-
-            const record = {
+        function addToHistory(items, time) {
+            const entry = {
                 id: Date.now(),
                 time: time,
-                items: items,
-                total: entryTotal
+                items: items
             };
-
-            history.unshift(record);
-            save();
-            statusEl.innerText = "Сохранено!";
+            history.unshift(entry);
+            saveAndRender();
         }
 
-        function render() {
+        function saveAndRender() {
+            localStorage.setItem('diet_log_v5', JSON.stringify(history));
             const container = document.getElementById('log-container');
             container.innerHTML = "";
-            let dayTotal = {c:0, p:0, f:0, carb:0};
 
-            history.forEach(rec => {
-                // Update Day Stats
-                dayTotal.c += rec.total.c; dayTotal.p += rec.total.p; 
-                dayTotal.f += rec.total.f; dayTotal.carb += rec.total.carb;
+            history.forEach(entry => {
+                let totalCal = 0;
+                let totalProt = 0;
+                let foodText = "";
 
-                // Build Item String
-                let foodStr = rec.items.map(i => `${i.food} (${i.grams}г)`).join(", ");
-                
-                // Build Copy String
-                const copyText = `[${rec.time}] ${foodStr}\n🔥 ${rec.total.c} ккал | Б:${rec.total.p} Ж:${rec.total.f} У:${rec.total.carb}`;
+                entry.items.forEach(item => {
+                    totalCal += item.cal;
+                    totalProt += item.prot;
+                    // Format: "plov 100 gr"
+                    foodText += `${item.name} ${item.grams} gr\n`;
+                });
 
-                // HTML
-                const card = document.createElement('div');
-                card.className = 'log-card';
-                card.innerHTML = `
-                    <div class="log-header">
-                        <span class="log-time">🕒 ${rec.time}</span>
-                        <span class="log-cals">${rec.total.c} ккал</span>
-                    </div>
-                    <div class="log-body">${foodStr}</div>
-                    <div class="log-footer">
-                        <div class="log-macros">P:${rec.total.p} • F:${rec.total.f} • C:${rec.total.carb}</div>
-                        <div>
-                            <button class="btn-action btn-delete" onclick="del(${rec.id})">Удалить</button>
-                            <button class="btn-action" onclick="copyToClip('${copyText.replace(/\n/g, "\\n")}')">Копировать</button>
-                        </div>
+                // Format: "22:54 800 cal protein 62 gr"
+                const summaryLine = `${entry.time} ${totalCal} cal protein ${totalProt} gr`;
+                const fullText = foodText + summaryLine;
+
+                const div = document.createElement('div');
+                div.className = 'log-card';
+                div.innerHTML = `
+                    <div class="log-lines">${fullText}</div>
+                    <div class="card-actions">
+                        <button class="btn btn-del" onclick="del(${entry.id})">Delete</button>
+                        <button class="btn" onclick="copyText(this, \`${fullText.replace(/\n/g, '\\n')}\`)">Copy</button>
                     </div>
                 `;
-                container.appendChild(card);
+                container.appendChild(div);
             });
-
-            // Update Header
-            document.querySelector('.big-number').innerText = dayTotal.c;
-            const macros = document.querySelectorAll('.macro-item span');
-            macros[0].innerText = dayTotal.p + 'g';
-            macros[1].innerText = dayTotal.carb + 'g';
-            macros[2].innerText = dayTotal.f + 'g';
         }
 
-        function copyToClip(text) {
-            navigator.clipboard.writeText(text).then(() => {
-                alert("Скопировано:\n" + text);
-            });
+        function copyText(btn, text) {
+            navigator.clipboard.writeText(text);
+            const original = btn.innerText;
+            btn.innerText = "Copied!";
+            btn.style.background = "#34c759";
+            btn.style.color = "white";
+            setTimeout(() => {
+                btn.innerText = original;
+                btn.style.background = "#e5e5ea";
+                btn.style.color = "#007AFF";
+            }, 1000);
         }
 
         function del(id) {
-            if(confirm("Удалить запись?")) {
+            if(confirm('Delete?')) {
                 history = history.filter(x => x.id !== id);
-                save();
+                saveAndRender();
             }
         }
 
-        function save() {
-            localStorage.setItem('uz_history_v3', JSON.stringify(history));
-            render();
-        }
+        // Init
+        saveAndRender();
 
-        function saveKey(k) { localStorage.setItem('deepseek_key', k); apiKey = k; }
-        function toggleSettings() { 
-            const el = document.getElementById('api-input');
-            el.style.display = el.style.display === 'block' ? 'none' : 'block';
-        }
-        
-        if(apiKey) document.getElementById('api-input').value = apiKey;
-        render(); // Init
     </script>
 </body>
 </html>
