@@ -196,7 +196,7 @@
                 addToHistory(detectedItems, time);
             } else {
                 // Try AI if local fail (optional)
-                const apiKey = localStorage.getItem('deepseek_key');
+                const apiKey = "sk-1db5fd50095842cfb1cab3a007df4970";
                 if(apiKey && navigator.onLine) {
                     await askAI(text, time);
                 } else {
@@ -207,7 +207,7 @@
 
         async function askAI(text, time) {
             // This is a fallback to parse weird sentences, but we still force DB values if name matches
-            const apiKey = localStorage.getItem('deepseek_key');
+            const apiKey = "sk-1db5fd50095842cfb1cab3a007df4970";
             try {
                 const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
                     method: 'POST',
