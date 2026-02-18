@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Smart Calorie Tracker</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <style>
+        body { font-family: -apple-system, sans-serif; background-color: #f2f2f7; margin: 0; padding: 20px; color: #000; }
+        .card { background: white; border-radius: 20px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 15px; }
+        
+        /* Главный счетчик */
+        .circle-progress { width: 120px; height: 120px; border-radius: 50%; border: 8px solid #f0f0f0; margin: 0 auto; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .circle-progress.good { border-color: #34c759; }
+        .total-val { font-size: 28px; font-weight: 800; color: #000; }
+        .label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* Кнопка записи */
+        #mic-btn { width: 70px; height: 70px; border-radius: 50%; background: #007AFF; border: none; color: white; font-size: 28px; cursor: pointer; display: block; margin: 20px auto; box-shadow: 0 4px 15px rgba(0,122,255,0.3); }
+        #mic-btn.recording { background: #ff3b30; animation: pulse 1.5s infinite; }
+        
+        /* Лента */
+        .entry { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #eee; }
+        .entry:last-child { border-bottom: none; }
+        .entry-name { font-weight: 600; }
+        .entry-meta { font-size: 13px; color: #888; }
+        .entry-cal { font-weight: 700; color: #007AFF; }
+        
+        /* Настройки */
+        .settings-box { font-size: 12px; color: #888; text-align: center; margin-top: 30px; }
+        input { padding: 8px; width: 80%; border: 1px solid #ddd; border-radius: 8px; margin-top: 5px; text-align: center; }
+
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <div class="circle-progress" id="progress-circle">
+            <span class="total-val" id="total-cals">0</span>
+            <span class="label">ккал</span>
+        </div>
+        <div style="text-align:center; margin-top:10px; font-size:14px; color:#666;">
+            Б: <span id="p-val">0</span> • Ж: <span id="f-val">0</span> • У: <span id="c-val">0</span>
+        </div>
+    </div>
+
+    <div class="card">
+        <p id="status" style="text-align:center; color:#888; margin-bottom:10px;">Нажми и скажи: <b>"Плов и салат"</b></p>
+        <button id="mic-btn">🎙️</button>
+        <button onclick="clearHistory()" style="background:none; border:none; color:#ff3b30; width:100%; margin-top:10px; font-size:12px;">Очистить историю</button>
+    </div>
+
+    <div class="card" id="log-container">
+        </div>
+
+    <div class="settings-box">
+        <div onclick="document.getElementById('key-input').style.display='block'">🔑 Настроить DeepSeek API</div>
+        <input type="password" id="key-input" style="display:none;" placeholder="Вставь sk- ключ и нажми Enter" onchange="saveKey(this.value)">
+    </div>
+
+    <script>
+        // --- 1. ЛОКАЛЬНАЯ БАЗА (АВТОНОМНЫЙ РЕЖИМ) ---
+        const localDB = {
+            "плов": 250, "ош": 250, "палов": 250,
+            "самса": 280, "сомса": 280,
+            "манты": 230, "лагман": 160, "шурпа": 80, "шурво": 80,
+            "шашлык": 240, "кебаб": 240,
+            "нон": 260, "хлеб": 260, "лепешка": 260,
+            "чай": 1, "кофе": 2, "кола": 42,
+            "яблоко": 52, "банан": 90, "яйцо": 150, "творог": 100
+        };
+
+        // --- 2. УПРАВЛЕНИЕ ДАННЫМИ (LOCALSTORAGE) ---
+        let history = JSON.parse(localStorage.getItem('foodHistory')) || [];
+        let apiKey = localStorage.getItem('deepseekKey') || "";
+        
+        // Сброс дня
+        const today = new Date().toDateString();
+        if (localStorage.getItem('lastDate') !== today) {
+            history = []; // Новый день - чистый лист
+            localStorage.setItem('lastDate', today);
+            saveHistory();
+        }
+
+        function saveKey(key) {
+            localStorage.setItem('deepseekKey', key);
+            apiKey = key;
+            alert("Ключ сохранен! Теперь я использую AI.");
+            document.getElementById('key-input').style.display='none';
+        }
+
+        function saveHistory() {
+            localStorage.setItem('foodHistory', JSON.stringify(history));
+            render();
+        }
+
+        function clearHistory() {
+            if(confirm("Удалить все записи за сегодня?")) {
+                history = [];
+                saveHistory();
+            }
+        }
+
+        // --- 3. ИНТЕРФЕЙС ---
+        function render() {
+            const container = document.getElementById('log-container');
+            container.innerHTML = "";
+            let totals = { cal: 0, p: 0, f: 0, c: 0 };
+
+            history.forEach((item, index) => {
+                totals.cal += item.cal;
+                // Упрощенный подсчет БЖУ для демо (можно расширить)
+                totals.p += Math.round(item.cal * 0.15); 
+                totals.f += Math.round(item.cal * 0.35); 
+                totals.c += Math.round(item.cal * 0.50);
+
+                const div = document.createElement('div');
+                div.className = 'entry';
+                div.innerHTML = `
+                    <div>
+                        <div class="entry-name">${item.name}</div>
+                        <div class="entry-meta">${item.grams} г</div>
+                    </div>
+                    <div class="entry-cal">${item.cal}</div>
+                    <div style="color:#ff3b30; margin-left:10px; font-size:18px;" onclick="removeItem(${index})">×</div>
+                `;
+                container.prepend(div);
+            });
+
+            document.getElementById('total-cals').innerText = totals.cal;
+            document.getElementById('p-val').innerText = Math.floor(totals.p / 4);
+            document.getElementById('f-val').innerText = Math.floor(totals.f / 9);
+            document.getElementById('c-val').innerText = Math.floor(totals.c / 4);
+            
+            if (totals.cal > 2000) document.getElementById('progress-circle').classList.remove('good');
+            else document.getElementById('progress-circle').classList.add('good');
+        }
+
+        function removeItem(index) {
+            history.splice(index, 1);
+            saveHistory();
+        }
+
+        // --- 4. ГОЛОС И AI ---
+        const micBtn = document.getElementById('mic-btn');
+        const statusEl = document.getElementById('status');
+        
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'ru-RU';
+
+        micBtn.onclick = () => { recognition.start(); micBtn.classList.add('recording'); statusEl.innerText = "Слушаю..."; };
+        
+        recognition.onresult = async (e) => {
+            micBtn.classList.remove('recording');
+            const text = e.results[0][0].transcript;
+            statusEl.innerText = "Думаю...";
+            
+            if (navigator.onLine && apiKey) {
+                await askAI(text);
+            } else {
+                askLocal(text);
+            }
+        };
+
+        recognition.onerror = () => { micBtn.classList.remove('recording'); statusEl.innerText = "Ошибка распознавания"; };
+
+        // Логика AI (DeepSeek)
+        async function askAI(text) {
+            try {
+                const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                    body: JSON.stringify({
+                        model: "deepseek-chat",
+                        messages: [{ role: "system", content: "Верни JSON массив: [{\"name\": \"Еда\", \"grams\": вес_число, \"cal\": калории_число}]. Плов=250ккал/100г. Если вес не указан, порция=350г. Текст: " + text }]
+                    })
+                });
+                const data = await res.json();
+                const jsonStr = data.choices[0].message.content.replace(/```json|```/g, '').trim();
+                const items = JSON.parse(jsonStr);
+                items.forEach(i => history.push(i));
+                saveHistory();
+                statusEl.innerText = "Готово! (Через AI)";
+            } catch (e) {
+                console.log(e);
+                askLocal(text); // Если AI упал, идем в оффлайн
+            }
+        }
+
+        // Логика Оффлайн (RegEx)
+        function askLocal(text) {
+            text = text.toLowerCase();
+            let found = false;
+            for (let [food, calPer100] of Object.entries(localDB)) {
+                if (text.includes(food)) {
+                    let grams = 100;
+                    // Пытаемся вытащить вес
+                    const nums = text.match(/\d+/);
+                    if (nums) grams = parseInt(nums[0]);
+                    else if (food === 'плов' || food === 'ош') grams = 350; // Стандартная порция
+                    else if (food === 'самса') grams = 100;
+                    
+                    history.push({ 
+                        name: food.charAt(0).toUpperCase() + food.slice(1), 
+                        grams: grams, 
+                        cal: Math.round(calPer100 * (grams / 100)) 
+                    });
+                    found = true;
+                }
+            }
+            if (found) {
+                saveHistory();
+                statusEl.innerText = "Готово! (Оффлайн режим)";
+            } else {
+                statusEl.innerText = "Не понял. Попробуй '200 грамм плова'";
+            }
+        }
+
+        // Запуск при старте
+        if (apiKey) document.getElementById('key-input').value = apiKey;
+        render();
+    </script>
+</body>
+</html>
